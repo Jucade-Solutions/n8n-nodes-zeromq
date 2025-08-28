@@ -46,4 +46,4 @@ Once installed, you can find the ZeroMQ node in your node panel.
 
 ---
 
-Developed by JucadeSolutions.
+Developed by Jucade Solutions.
