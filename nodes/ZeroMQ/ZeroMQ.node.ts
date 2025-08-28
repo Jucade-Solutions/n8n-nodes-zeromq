@@ -1,4 +1,3 @@
-
 import type {
 	IExecuteFunctions,
 	IDataObject,
@@ -41,8 +40,7 @@ export class ZeroMQ implements INodeType {
 		},
 		inputs: [NodeConnectionType.Main],
 		outputs: [NodeConnectionType.Main],
-		properties: [
-			// ... (the rest of the properties are correct)
+        properties: [
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -50,16 +48,16 @@ export class ZeroMQ implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
+                        name: 'Send',
+                        value: 'send',
+                        description: 'Send a message',
+                        action: 'Send a message to a zeromq socket',
+                    },
+                    {
 						name: 'Receive',
 						value: 'receive',
-						description: 'Receive messages (acts as a Trigger)',
-						action: 'Receive messages from a zeromq socket',
-					},
-					{
-						name: 'Send',
-						value: 'send',
-						description: 'Send messages',
-						action: 'Send messages to a zeromq socket',
+                        description: 'Receive a message (as a one-time action) or start a trigger node',
+                        action: 'Receive a message from a zeromq socket',
 					},
 				],
 				default: 'send',
@@ -124,7 +122,7 @@ export class ZeroMQ implements INodeType {
 				name: 'response',
 				type: 'string',
 				default: 'ACK',
-				displayOptions: { show: { operation: ['receive'], socketType: ['rep'] } },
+                displayOptions: { show: { operation: ['receive'] } },
 				description: 'Automatic response to send upon receiving a message on a REP socket',
 			},
 		],
@@ -136,14 +134,14 @@ export class ZeroMQ implements INodeType {
 			return;
 		}
 
-		const socketType = this.getNodeParameter('socketType') as SocketType;
-		const bindType = this.getNodeParameter('bindType') as 'bind' | 'connect';
-		const address = this.getNodeParameter('socketAddress') as string;
-
+        const socketType = this.getNodeParameter('socketType') as SocketType;
 		if (!['rep', 'sub', 'pull'].includes(socketType)) {
-			throw new NodeOperationError(this.getNode(), `Socket type "${socketType}" is invalid for receive operation.`);
+            // This is a trigger, so only receivable types are valid.
+            return; // Do not start the trigger for non-receivable types
 		}
 
+        const bindType = this.getNodeParameter('bindType') as 'bind' | 'connect';
+        const address = this.getNodeParameter('socketAddress') as string;
 		const sock = createSocket(socketType) as ReceivableSocket;
 
 		if (bindType === 'bind') {
@@ -189,57 +187,84 @@ export class ZeroMQ implements INodeType {
 	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const operation = this.getNodeParameter('operation', 0) as string;
-		if (operation !== 'send') return [this.helpers.returnJsonArray([])];
-
+        const operation = this.getNodeParameter('operation', 0) as string;
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const socketType = this.getNodeParameter('socketType', 0) as SocketType;
-		const bindType = this.getNodeParameter('bindType', 0) as 'bind' | 'connect';
-		const address = this.getNodeParameter('socketAddress', 0) as string;
+        if (operation === 'send') {
+            const socketType = this.getNodeParameter('socketType', 0) as SocketType;
+            const bindType = this.getNodeParameter('bindType', 0) as 'bind' | 'connect';
+            const address = this.getNodeParameter('socketAddress', 0) as string;
 
-		if (!['req', 'pub', 'push'].includes(socketType)) {
-			throw new NodeOperationError(this.getNode(), `Socket type "${socketType}" is invalid for send operation.`);
-		}
+            if (!['req', 'pub', 'push'].includes(socketType)) {
+                throw new NodeOperationError(this.getNode(), `Socket type "${socketType}" is invalid for send operation.`);
+            }
 
-		const sock = createSocket(socketType);
+            const sock = createSocket(socketType);
+            await (bindType === 'bind' ? sock.bind(address) : sock.connect(address));
 
-		if (bindType === 'bind') {
-			await sock.bind(address);
-		} else {
-			sock.connect(address);
-		}
+            try {
+                for (let i = 0; i < items.length; i++) {
+                    const message = this.getNodeParameter('message', i) as string;
+                    let response: IDataObject = { success: true, sent: message };
 
-		try {
-			for (let i = 0; i < items.length; i++) {
-				const message = this.getNodeParameter('message', i) as string;
-				let response: IDataObject = { success: true, sent: message };
+                    if (socketType === 'pub') {
+                        const topic = this.getNodeParameter('topic', i) as string;
+                        await (sock as zmq.Publisher).send([topic, message]);
+                        response.topic = topic;
+                    } else {
+                        await (sock as zmq.Push | zmq.Request).send(message);
+                    }
 
-				if (socketType === 'pub') {
-					const topic = this.getNodeParameter('topic', i) as string;
-					await (sock as zmq.Publisher).send([topic, message]);
-					response.topic = topic;
-				} else if (socketType === 'req') {
-					await (sock as zmq.Request).send(message);
-				} else if (socketType === 'push') {
-					await (sock as zmq.Push).send(message);
-				}
+                    if (socketType === 'req') {
+                        const [result] = await (sock as zmq.Request).receive();
+                        response.response = result.toString();
+                    }
 
-				if (socketType === 'req') {
-					const [result] = await (sock as zmq.Request).receive();
-					response.response = result.toString();
-				}
+                    returnData.push({ json: response, pairedItem: { item: i } });
+                }
+            } finally {
+                if (!sock.closed) sock.close();
+            }
 
-				returnData.push({ json: response, pairedItem: { item: i } });
-			}
-		} catch (error) {
-			if (error instanceof Error) {
-				throw new NodeOperationError(this.getNode(), error);
-			}
-			throw error;
-		} finally {
-			if (!sock.closed) sock.close();
+        } else if (operation === 'receive') {
+            const socketType = this.getNodeParameter('socketType', 0) as SocketType;
+            const bindType = this.getNodeParameter('bindType', 0) as 'bind' | 'connect';
+            const address = this.getNodeParameter('socketAddress', 0) as string;
+
+            if (!['pull', 'sub', 'rep'].includes(socketType)) {
+                throw new NodeOperationError(this.getNode(), `Socket type "${socketType}" is invalid for a receive action.`);
+            }
+
+            const sock = createSocket(socketType) as ReceivableSocket;
+            await (bindType === 'bind' ? sock.bind(address) : sock.connect(address));
+
+            try {
+                if (socketType === 'sub') {
+                    const topic = this.getNodeParameter('topic', 0, '') as string;
+                    (sock as zmq.Subscriber).subscribe(topic);
+                }
+
+                const messages = await sock.receive();
+                const parts = (Array.isArray(messages) ? messages : [messages]).map(buf => buf.toString());
+                const receivedJson: IDataObject = {};
+
+                if (socketType === 'sub') {
+                    receivedJson.topic = parts[0];
+                    receivedJson.message = parts.slice(1).join(' ');
+                } else {
+                    receivedJson.message = parts.join(' ');
+                }
+
+                returnData.push({ json: receivedJson });
+
+                if (socketType === 'rep') {
+                    const response = this.getNodeParameter('response', 0, 'ACK') as string;
+                    await (sock as zmq.Reply).send(response);
+                }
+            } finally {
+                if (!sock.closed) sock.close();
+            }
 		}
 
 		return [this.helpers.returnJsonArray(returnData)];
