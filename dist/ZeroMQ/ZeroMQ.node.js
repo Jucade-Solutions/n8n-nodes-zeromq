@@ -43,7 +43,7 @@ class ZeroMQ {
         this.description = {
             displayName: 'ZeroMQ',
             name: 'zeroMQ',
-            icon: 'file:zeroMQ.svg',
+            icon: 'file:zeroMQ.png',
             group: ['network'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["socketType"]}}',
