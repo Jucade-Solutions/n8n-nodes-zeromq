@@ -1,0 +1,4 @@
+onlyBuiltDependencies:
+  - cpu-features
+  - ssh2
+  - zeromq

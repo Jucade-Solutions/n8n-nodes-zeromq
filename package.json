@@ -1,0 +1,42 @@
+{
+  "name": "n8n-nodes-zeromq",
+  "version": "1.0.0",
+  "description": "n8n node to interact with ZeroMQ",
+  "main": "dist/nodes/ZeroMQ/ZeroMQ.node.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "author": {
+    "name": "Jucade Solutions",
+    "email": "info@jucade.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jucade-Solutions/n8n-nodes-zeromq.git"
+  },
+  "keywords": [
+    "n8n",
+    "zeromq",
+    "n8n-community-node-package"
+  ],
+  "n8n": {
+    "nodes": [
+      "dist/nodes/ZeroMQ/ZeroMQ.node.js"
+    ]
+  },
+  "dependencies": {
+    "n8n-core": "^1.0.0",
+    "n8n-workflow": "^1.0.0",
+    "zeromq": "^6.0.0-beta.19"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.41",
+    "typescript": "~4.8.4"
+  }
+}
