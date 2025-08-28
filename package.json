@@ -27,7 +27,8 @@
   ],
   "n8n": {
     "nodes": [
-      "dist/ZeroMQ/ZeroMQ.node.js"
+      "dist/ZeroMQ/ZeroMQ.node.js",
+      "dist/ZeroMQ/ZeroMQTrigger.node.js"
     ]
   },
   "dependencies": {

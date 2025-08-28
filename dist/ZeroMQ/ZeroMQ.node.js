@@ -43,11 +43,11 @@ class ZeroMQ {
         this.description = {
             displayName: 'ZeroMQ',
             name: 'zeroMQ',
-            icon: 'file:zeroMQ.png',
+            icon: 'file:zeroMQ.svg',
             group: ['network'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["socketType"]}}',
-            description: 'Interact with ZeroMQ sockets (PUSH, PULL, PUB, SUB, REQ, REP)',
+            description: 'Sends or receives ZeroMQ messages as a one-time action',
             defaults: {
                 name: 'ZeroMQ',
             },
@@ -64,13 +64,11 @@ class ZeroMQ {
                             name: 'Send',
                             value: 'send',
                             description: 'Send a message',
-                            action: 'Send a message to a zeromq socket',
                         },
                         {
                             name: 'Receive',
                             value: 'receive',
-                            description: 'Receive a message (as a one-time action) or start a trigger node',
-                            action: 'Receive a message from a zeromq socket',
+                            description: 'Receive a single message',
                         },
                     ],
                     default: 'send',
@@ -135,68 +133,17 @@ class ZeroMQ {
                     name: 'response',
                     type: 'string',
                     default: 'ACK',
-                    displayOptions: { show: { operation: ['receive'] } },
+                    displayOptions: { show: { operation: ['receive'], socketType: ['rep'] } },
                     description: 'Automatic response to send upon receiving a message on a REP socket',
                 },
             ],
         };
     }
-    async trigger() {
-        const operation = this.getNodeParameter('operation');
-        if (operation !== 'receive') {
-            return;
-        }
-        const socketType = this.getNodeParameter('socketType');
-        if (!['rep', 'sub', 'pull'].includes(socketType)) {
-            // This is a trigger, so only receivable types are valid.
-            return; // Do not start the trigger for non-receivable types
-        }
-        const bindType = this.getNodeParameter('bindType');
-        const address = this.getNodeParameter('socketAddress');
-        const sock = createSocket(socketType);
-        if (bindType === 'bind') {
-            await sock.bind(address);
-        }
-        else {
-            sock.connect(address);
-        }
-        if (socketType === 'sub') {
-            const topic = this.getNodeParameter('topic', '');
-            sock.subscribe(topic);
-        }
-        const run = async () => {
-            try {
-                for await (const messages of sock) {
-                    const parts = (Array.isArray(messages) ? messages : [messages]).map(buf => buf.toString());
-                    const receivedData = {};
-                    if (socketType === 'sub') {
-                        receivedData.topic = parts[0];
-                        receivedData.message = parts.slice(1).join(' ');
-                    }
-                    else {
-                        receivedData.message = parts.join(' ');
-                    }
-                    this.emit([this.helpers.returnJsonArray([receivedData])]);
-                    if (socketType === 'rep') {
-                        const response = this.getNodeParameter('response', 'ACK');
-                        await sock.send(response);
-                    }
-                }
-            }
-            catch (error) {
-                if (sock.closed)
-                    return;
-                console.error('Error in ZeroMQ trigger:', error);
-            }
-        };
-        run();
-        return { closeFunction: async () => { sock.close(); } };
-    }
     async execute() {
         const operation = this.getNodeParameter('operation', 0);
-        const items = this.getInputData();
         const returnData = [];
         if (operation === 'send') {
+            const items = this.getInputData();
             const socketType = this.getNodeParameter('socketType', 0);
             const bindType = this.getNodeParameter('bindType', 0);
             const address = this.getNodeParameter('socketAddress', 0);
