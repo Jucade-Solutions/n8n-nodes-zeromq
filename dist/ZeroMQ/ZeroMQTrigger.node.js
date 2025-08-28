@@ -39,7 +39,7 @@ class ZeroMQTrigger {
         this.description = {
             displayName: 'ZeroMQ Trigger',
             name: 'zeroMQTrigger',
-            icon: 'file:zeroMQ.svg',
+            icon: 'file:zeroMQ.png',
             group: ['trigger'],
             version: 1,
             description: 'Starts a workflow when a ZeroMQ message is received',
