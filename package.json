@@ -1,8 +1,8 @@
 {
   "name": "n8n-nodes-zeromq",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "n8n node to interact with ZeroMQ",
-  "main": "dist/nodes/ZeroMQ/ZeroMQ.node.js",
+  "main": "dist/ZeroMQ/ZeroMQ.node.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -27,7 +27,7 @@
   ],
   "n8n": {
     "nodes": [
-      "dist/nodes/ZeroMQ/ZeroMQ.node.js"
+      "dist/ZeroMQ/ZeroMQ.node.js"
     ]
   },
   "dependencies": {
