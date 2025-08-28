@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-zeromq",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "n8n node to interact with ZeroMQ",
   "main": "dist/ZeroMQ/ZeroMQ.node.js",
   "scripts": {
